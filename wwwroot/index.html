@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistem Inventaris Arsip File Kantor</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+      <div class="nav-container">
+        <div class="nav-brand">
+          <h2>📁 Sistem Inventaris Arsip</h2>
+        </div>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <a href="#" class="nav-link" onclick="showSection('dashboard')"
+              >🏠 Dashboard</a
+            >
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link" onclick="showSection('search')"
+              >🔍 Pencarian Arsip</a
+            >
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link" onclick="showSection('list')"
+              >📋 Daftar Arsip</a
+            >
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link" onclick="showSection('add')"
+              >➕ Tambah Arsip</a
+            >
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="container">
+      <!-- Dashboard Section -->
+      <div id="dashboard-section" class="section active">
+        <h1>Dashboard Arsip</h1>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+              <h3 id="totalArchives">0</h3>
+              <p>Total Arsip</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📁</div>
+            <div class="stat-info">
+              <h3 id="totalCategories">0</h3>
+              <p>Kategori</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🏢</div>
+            <div class="stat-info">
+              <h3 id="totalDepartments">0</h3>
+              <p>Departemen</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💾</div>
+            <div class="stat-info">
+              <h3 id="totalSize">0 KB</h3>
+              <p>Total Ukuran</p>
+            </div>
+          </div>
+        </div>
+        <div class="recent-archives">
+          <h2>Arsip Terbaru</h2>
+          <div id="recentArchivesList"></div>
+        </div>
+      </div>
+
+      <!-- Search Section -->
+      <div id="search-section" class="section">
+        <h1>Pencarian Arsip</h1>
+        <div class="card">
+          <h2>🔍 Pencarian Arsip</h2>
+          <div class="search-bar">
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Cari berdasarkan nama file, deskripsi, atau tags..."
+            />
+            <select id="category-filter" aria-label="Filter by Category">
+              <option value="">Semua Kategori</option>
+              <option value="Surat Masuk">Surat Masuk</option>
+              <option value="Surat Keluar">Surat Keluar</option>
+              <option value="Laporan">Laporan</option>
+              <option value="Kontrak">Kontrak</option>
+              <option value="Keuangan">Keuangan</option>
+              <option value="SDM">SDM</option>
+              <option value="Operasional">Operasional</option>
+            </select>
+            <select id="department-filter" aria-label="Filter by Department">
+              <option value="">Semua Departemen</option>
+              <option value="Direksi">Direksi</option>
+              <option value="Keuangan">Keuangan</option>
+              <option value="SDM">SDM</option>
+              <option value="IT">IT</option>
+              <option value="Operasional">Operasional</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Legal">Legal</option>
+            </select>
+            <button class="btn" onclick="searchArchives()">🔍 Cari</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>📋 Hasil Pencarian</h2>
+          <div id="search-results" class="archive-list"></div>
+        </div>
+      </div>
+
+      <!-- List Section -->
+      <div id="list-section" class="section">
+        <h1>Daftar Arsip</h1>
+        <div class="card">
+          <h2>📋 Daftar Arsip File</h2>
+          <div id="loading" class="loading hidden">Memuat data...</div>
+          <div id="archive-list" class="archive-list"></div>
+        </div>
+      </div>
+
+      <!-- Add Section -->
+      <div id="add-section" class="section">
+        <h1>Tambah Arsip Baru</h1>
+
+        <div id="message"></div>
+
+        <!-- Form Tambah/Edit Arsip -->
+        <div class="card">
+          <h2 id="form-title">➕ Tambah Arsip Baru</h2>
+          <form id="archive-form">
+            <input type="hidden" id="archive-id" />
+
+            <!-- Info Update Terakhir (hanya tampil saat edit) -->
+            <div
+              id="last-update-info"
+              class="update-info"
+              style="display: none"
+            >
+              <div class="info-row">
+                <p id="created-info">
+                  <strong>Dibuat:</strong> <span id="created-date"></span> oleh
+                  <span id="createdBy"></span>
+                </p>
+                <p id="modified-info" style="display: none">
+                  <strong>Terakhir Diperbarui:</strong>
+                  <span id="modified-date"></span>
+                </p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="fileName">Nama File *</label>
+              <input type="text" id="fileName" required />
+            </div>
+
+            <div class="form-group">
+              <label for="fileType">Tipe File *</label>
+              <select id="fileType" required>
+                <option value="">Pilih Tipe File</option>
+                <option value="PDF">PDF</option>
+                <option value="DOC">DOC/DOCX</option>
+                <option value="XLS">XLS/XLSX</option>
+                <option value="PPT">PPT/PPTX</option>
+                <option value="IMG">Gambar (JPG/PNG)</option>
+                <option value="TXT">Text</option>
+                <option value="OTHER">Lainnya</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="fileUpload">Upload File</label>
+              <input
+                type="file"
+                id="fileUpload"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
+              />
+              <small class="form-help"
+                >Pilih file untuk diunggah (opsional). Jika tidak ada file yang
+                dipilih, isi lokasi file manual di bawah.</small
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="filePath">Lokasi File *</label>
+              <input
+                type="text"
+                id="filePath"
+                placeholder="Contoh: /server/documents/2024/ (akan diisi otomatis jika file diunggah)"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="description">Deskripsi *</label>
+              <textarea
+                id="description"
+                rows="3"
+                placeholder="Deskripsi singkat tentang file arsip"
+                required
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="category">Kategori</label>
+              <select id="category">
+                <option value="">Pilih Kategori</option>
+                <option value="Surat Masuk">Surat Masuk</option>
+                <option value="Surat Keluar">Surat Keluar</option>
+                <option value="Laporan">Laporan</option>
+                <option value="Kontrak">Kontrak</option>
+                <option value="Keuangan">Keuangan</option>
+                <option value="SDM">SDM</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="department">Departemen</label>
+              <select id="department">
+                <option value="">Pilih Departemen</option>
+                <option value="Direksi">Direksi</option>
+                <option value="Keuangan">Keuangan</option>
+                <option value="SDM">SDM</option>
+                <option value="IT">IT</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Legal">Legal</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="fileSizeKB">Ukuran File (KB)</label>
+              <input type="number" id="fileSizeKB" step="0.01" min="0" />
+            </div>
+
+            <div class="form-group">
+              <label for="createdBy">Dibuat Oleh</label>
+              <input type="text" id="createdBy" placeholder="Nama pembuat" />
+            </div>
+
+            <div class="form-group">
+              <label for="tags">Tags</label>
+              <input
+                type="text"
+                id="tags"
+                placeholder="Pisahkan dengan koma (contoh: penting, rahasia, 2024)"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="notes">Catatan</label>
+              <textarea
+                id="notes"
+                rows="2"
+                placeholder="Catatan tambahan"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="status">Status</label>
+              <select id="status">
+                <option value="Active">Active</option>
+                <option value="Archived">Archived</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn" id="submit-btn">
+              💾 Simpan Arsip
+            </button>
+            <button
+              type="button"
+              class="btn btn-warning"
+              id="cancel-btn"
+              onclick="cancelEdit()"
+            >
+              ❌ Batal
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
