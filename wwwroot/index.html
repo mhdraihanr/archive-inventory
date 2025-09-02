@@ -34,6 +34,11 @@
               >➕ Tambah Arsip</a
             >
           </li>
+          <li class="nav-item" id="edit-nav-item" style="display: none">
+            <a href="#" class="nav-link" onclick="showSection('edit')"
+              >✏️ Edit Arsip</a
+            >
+          </li>
         </ul>
       </div>
     </nav>
@@ -149,11 +154,21 @@
               <div class="info-row">
                 <p id="created-info">
                   <strong>Dibuat:</strong> <span id="created-date"></span> oleh
-                  <span id="createdBy"></span>
+                  <span id="created-by-display">N/A</span>
                 </p>
                 <p id="modified-info" style="display: none">
                   <strong>Terakhir Diperbarui:</strong>
-                  <span id="modified-date"></span>
+                  <span id="modified-date"></span> oleh
+                  <span id="modified-by-display">N/A</span>
+                </p>
+              </div>
+              <div
+                class="status-update"
+                id="status-update"
+                style="display: none"
+              >
+                <p class="status-message">
+                  ✅ <strong>Status:</strong> Data sedang diperbaharui...
                 </p>
               </div>
             </div>
@@ -290,7 +305,325 @@
           </form>
         </div>
       </div>
+
+      <!-- Edit Section -->
+      <div id="edit-section" class="section">
+        <h1>Edit Arsip</h1>
+        <div class="card">
+          <h2>✏️ Edit Arsip File</h2>
+          <form id="editArchiveForm">
+            <input type="hidden" id="editArchiveId" />
+
+            <div
+              id="edit-last-update-info"
+              class="update-info"
+              style="display: none"
+            >
+              <div class="info-row">
+                <p id="edit-created-info">
+                  <strong>Dibuat:</strong>
+                  <span id="edit-created-date"></span> oleh
+                  <span id="edit-created-by-display">N/A</span>
+                </p>
+                <p id="edit-modified-info" style="display: none">
+                  <strong>Terakhir Diperbarui:</strong>
+                  <span id="edit-modified-date"></span> oleh
+                  <span id="edit-modified-by-display">N/A</span>
+                </p>
+              </div>
+              <div
+                class="status-update"
+                id="edit-status-update"
+                style="display: none"
+              >
+                <p class="status-message">
+                  ✅ <strong>Status:</strong> Data sedang diperbaharui...
+                </p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="editFileName">Nama File *</label>
+              <input type="text" id="editFileName" required />
+            </div>
+
+            <div class="form-group">
+              <label for="editFileType">Tipe File *</label>
+              <select id="editFileType" required>
+                <option value="">Pilih Tipe File</option>
+                <option value="PDF">PDF</option>
+                <option value="DOC">DOC/DOCX</option>
+                <option value="XLS">XLS/XLSX</option>
+                <option value="PPT">PPT/PPTX</option>
+                <option value="IMG">Gambar (JPG/PNG)</option>
+                <option value="TXT">Text</option>
+                <option value="OTHER">Lainnya</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="editFilePath">Lokasi File *</label>
+              <input
+                type="text"
+                id="editFilePath"
+                placeholder="Contoh: /server/documents/2024/"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="editDescription">Deskripsi *</label>
+              <textarea
+                id="editDescription"
+                rows="3"
+                placeholder="Deskripsi singkat tentang file arsip"
+                required
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="editCategory">Kategori</label>
+              <select id="editCategory">
+                <option value="">Pilih Kategori</option>
+                <option value="Surat Masuk">Surat Masuk</option>
+                <option value="Surat Keluar">Surat Keluar</option>
+                <option value="Laporan">Laporan</option>
+                <option value="Kontrak">Kontrak</option>
+                <option value="Keuangan">Keuangan</option>
+                <option value="SDM">SDM</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="editDepartment">Departemen</label>
+              <select id="editDepartment">
+                <option value="">Pilih Departemen</option>
+                <option value="Direksi">Direksi</option>
+                <option value="Keuangan">Keuangan</option>
+                <option value="SDM">SDM</option>
+                <option value="IT">IT</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Legal">Legal</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="editFileSizeKB">Ukuran File (KB)</label>
+              <input type="number" id="editFileSizeKB" step="0.01" min="0" />
+            </div>
+
+            <div class="form-group">
+              <label for="editCreatedBy">Dibuat Oleh</label>
+              <input
+                type="text"
+                id="editCreatedBy"
+                placeholder="Nama pembuat"
+                readonly
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="editTags">Tags</label>
+              <input
+                type="text"
+                id="editTags"
+                placeholder="Pisahkan dengan koma (contoh: penting, rahasia, 2024)"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="editNotes">Catatan</label>
+              <textarea
+                id="editNotes"
+                rows="2"
+                placeholder="Catatan tambahan"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="editStatus">Status</label>
+              <select id="editStatus">
+                <option value="Active">Active</option>
+                <option value="Archived">Archived</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn" id="edit-submit-btn">
+              💾 Update Arsip
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              id="edit-cancel-btn"
+              onclick="cancelEditForm()"
+            >
+              ❌ Batal
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
+
+    <!-- Template Archive Item -->
+    <template id="archive-item-template">
+      <div class="archive-item">
+        <div class="archive-header">
+          <h3 class="archive-title"></h3>
+          <div class="archive-actions">
+            <button class="btn-download" title="Download">📥</button>
+            <button class="btn-edit" title="Edit">✏️</button>
+            <button class="btn-delete" title="Hapus">🗑️</button>
+          </div>
+        </div>
+        <div class="archive-details">
+          <div class="archive-info">
+            <p class="description">
+              <strong>Deskripsi:</strong> <span class="desc-value"></span>
+            </p>
+            <p class="department">
+              <strong>Departemen:</strong> <span class="dept-value"></span>
+            </p>
+            <p class="created">
+              <strong>Dibuat:</strong> <span class="created-value"></span>
+            </p>
+            <p class="modified" style="display: none">
+              <strong>Diperbarui:</strong> <span class="modified-value"></span>
+            </p>
+            <p class="status">
+              <strong>Status:</strong> <span class="status-badge"></span>
+            </p>
+            <p class="category">
+              <strong>Kategori:</strong> <span class="badge category"></span>
+            </p>
+            <p class="file-type">
+              <strong>Tipe File:</strong> <span class="file-type-value"></span>
+            </p>
+            <p class="file-size">
+              <strong>Ukuran:</strong> <span class="file-size-value"></span>
+            </p>
+            <p class="file-path">
+              <strong>Lokasi:</strong> <span class="file-path-value"></span>
+            </p>
+            <p class="tags" style="display: none">
+              <strong>Tags:</strong> <span class="tags-value"></span>
+            </p>
+            <p class="notes" style="display: none">
+              <strong>Catatan:</strong> <span class="notes-value"></span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Template Form Edit Inline -->
+    <template id="inline-edit-form-template">
+      <div class="inline-edit-form" id="inline-edit-form">
+        <h4>✏️ Edit Arsip</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-fileName">Nama File:</label>
+            <input type="text" id="edit-fileName" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label for="edit-fileType">Tipe File:</label>
+            <select id="edit-fileType" class="form-control">
+              <option value="PDF">PDF</option>
+              <option value="DOC">DOC/DOCX</option>
+              <option value="XLS">XLS/XLSX</option>
+              <option value="PPT">PPT/PPTX</option>
+              <option value="IMG">Gambar (JPG/PNG)</option>
+              <option value="TXT">Text</option>
+              <option value="OTHER">Lainnya</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-description">Deskripsi:</label>
+            <textarea
+              id="edit-description"
+              class="form-control"
+              rows="2"
+            ></textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-category">Kategori:</label>
+            <select id="edit-category" class="form-control">
+              <option value="">Pilih Kategori</option>
+              <option value="Surat Masuk">Surat Masuk</option>
+              <option value="Surat Keluar">Surat Keluar</option>
+              <option value="Laporan">Laporan</option>
+              <option value="Kontrak">Kontrak</option>
+              <option value="Keuangan">Keuangan</option>
+              <option value="SDM">SDM</option>
+              <option value="Operasional">Operasional</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-department">Departemen:</label>
+            <select id="edit-department" class="form-control">
+              <option value="">Pilih Departemen</option>
+              <option value="Direksi">Direksi</option>
+              <option value="Keuangan">Keuangan</option>
+              <option value="SDM">SDM</option>
+              <option value="IT">IT</option>
+              <option value="Operasional">Operasional</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Legal">Legal</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-tags">Tags:</label>
+            <input
+              type="text"
+              id="edit-tags"
+              class="form-control"
+              placeholder="Pisahkan dengan koma"
+            />
+          </div>
+          <div class="form-group">
+            <label for="edit-status">Status:</label>
+            <select id="edit-status" class="form-control">
+              <option value="Active">Active</option>
+              <option value="Archived">Archived</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-notes">Catatan:</label>
+          <textarea id="edit-notes" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="saveInlineEdit()"
+          >
+            💾 Simpan
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="cancelInlineEdit()"
+          >
+            ❌ Batal
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="script.js"></script>
   </body>

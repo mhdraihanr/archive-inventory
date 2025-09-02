@@ -5,6 +5,137 @@ const API_BASE = "/api/archives";
 let archives = [];
 let editingId = null;
 let allArchives = [];
+let currentPage = 1;
+const itemsPerPage = 10;
+
+// Toast notification system
+function showToast(type, title, message, duration = 5000) {
+  const toastContainer = document.getElementById("toast-container");
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+
+  const icons = {
+    success: "✅",
+    error: "❌",
+    warning: "⚠️",
+    info: "ℹ️",
+  };
+
+  toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || icons.info}</div>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+        <button class="toast-close" onclick="removeToast(this.parentElement)">×</button>
+        <div class="toast-progress"></div>
+    `;
+
+  toastContainer.appendChild(toast);
+
+  // Auto remove after duration
+  setTimeout(() => {
+    removeToast(toast);
+  }, duration);
+
+  return toast;
+}
+
+function removeToast(toast) {
+  if (toast && toast.parentElement) {
+    toast.classList.add("removing");
+    setTimeout(() => {
+      if (toast.parentElement) {
+        toast.parentElement.removeChild(toast);
+      }
+    }, 300);
+  }
+}
+
+// Template Management
+function createArchiveItemFromTemplate(archive) {
+  const template = document.getElementById("archive-item-template");
+  const clone = template.content.cloneNode(true);
+
+  // Set data attribute
+  const archiveItem = clone.querySelector(".archive-item");
+  archiveItem.setAttribute("data-archive-id", archive.id);
+
+  // Fill in the data
+  clone.querySelector(".archive-title").textContent = archive.fileName;
+  clone.querySelector(".desc-value").textContent =
+    archive.description || "Tidak ada deskripsi";
+  clone.querySelector(".dept-value").textContent =
+    archive.department || "Tidak ada departemen";
+  clone.querySelector(".created-value").textContent = formatDate(
+    archive.createdDate || archive.createdAt
+  );
+  clone.querySelector(".file-type-value").textContent =
+    archive.fileType || "N/A";
+  clone.querySelector(".file-size-value").textContent = formatFileSize(
+    (archive.fileSizeKB || 0) * 1024
+  );
+  clone.querySelector(".file-path-value").textContent =
+    archive.filePath || "N/A";
+
+  // Status badge
+  const statusBadge = clone.querySelector(".status-badge");
+  statusBadge.textContent = archive.status || "Active";
+  statusBadge.className = `status-badge status-${(
+    archive.status || "Active"
+  ).toLowerCase()}`;
+
+  // Category badge
+  const categoryBadge = clone.querySelector(".badge.category");
+  categoryBadge.textContent = archive.category || "Tidak ada kategori";
+
+  // Handle optional fields
+  if (archive.lastModified) {
+    const modifiedElement = clone.querySelector(".modified");
+    modifiedElement.style.display = "block";
+    modifiedElement.querySelector(
+      ".modified-value"
+    ).textContent = `${formatDate(archive.lastModified)} oleh ${
+      archive.modifiedBy || "N/A"
+    }`;
+  }
+
+  if (archive.tags) {
+    const tagsElement = clone.querySelector(".tags");
+    tagsElement.style.display = "block";
+    tagsElement.querySelector(".tags-value").textContent = archive.tags;
+  }
+
+  if (archive.notes) {
+    const notesElement = clone.querySelector(".notes");
+    notesElement.style.display = "block";
+    notesElement.querySelector(".notes-value").textContent = archive.notes;
+  }
+
+  // Set up action buttons
+  const downloadBtn = clone.querySelector(".btn-download");
+  const editBtn = clone.querySelector(".btn-edit");
+  const deleteBtn = clone.querySelector(".btn-delete");
+
+  if (archive.filePath && archive.filePath.startsWith("/uploads/")) {
+    downloadBtn.onclick = () =>
+      downloadFile(archive.filePath, archive.fileName);
+  } else {
+    downloadBtn.style.display = "none";
+  }
+
+  editBtn.onclick = () => editArchive(archive.id);
+  deleteBtn.onclick = () => deleteArchive(archive.id);
+
+  // Hide edit and delete buttons only in dashboard
+  const currentSection = document.querySelector(".section.active");
+  if (currentSection && currentSection.id === "dashboard-section") {
+    editBtn.style.display = "none";
+    deleteBtn.style.display = "none";
+  }
+
+  return clone;
+}
 
 // Initialize Application
 document.addEventListener("DOMContentLoaded", function () {
@@ -98,6 +229,7 @@ function loadRecentArchives(archives) {
     .slice(0, 5);
 
   const container = document.getElementById("recentArchivesList");
+  container.innerHTML = "";
 
   if (recentArchives.length === 0) {
     container.innerHTML =
@@ -105,41 +237,17 @@ function loadRecentArchives(archives) {
     return;
   }
 
-  container.innerHTML = recentArchives
-    .map(
-      (archive) => `
-    <div class="archive-item">
-      <div class="archive-header">
-        <h3>${escapeHtml(archive.fileName)}</h3>
-        <span class="badge category">${escapeHtml(
-          archive.category || "Tidak ada kategori"
-        )}</span>
-      </div>
-      <div class="archive-details">
-        <p><strong>Deskripsi:</strong> ${escapeHtml(
-          archive.description || "Tidak ada deskripsi"
-        )}</p>
-        <p><strong>Departemen:</strong> ${escapeHtml(
-          archive.department || "Tidak ada departemen"
-        )}</p>
-        <p><strong>Dibuat:</strong> ${formatDate(
-          archive.createdDate || archive.createdAt
-        )}</p>
-        ${
-          archive.lastModified
-            ? `<p><strong>Diperbarui:</strong> ${formatDate(
-                archive.lastModified
-              )} oleh ${escapeHtml(archive.modifiedBy || "N/A")}</p>`
-            : ""
-        }
-        <p><strong>Status:</strong> <span class="status-badge status-${(
-          archive.status || "Active"
-        ).toLowerCase()}">${escapeHtml(archive.status || "Active")}</span></p>
-      </div>
-    </div>
-  `
-    )
-    .join("");
+  recentArchives.forEach((archive) => {
+    const archiveElement = createArchiveItemFromTemplate(archive);
+    
+    // Hide edit and delete buttons in dashboard
+    const editBtn = archiveElement.querySelector(".btn-edit");
+    const deleteBtn = archiveElement.querySelector(".btn-delete");
+    if (editBtn) editBtn.style.display = "none";
+    if (deleteBtn) deleteBtn.style.display = "none";
+    
+    container.appendChild(archiveElement);
+  });
 }
 
 // Search Functions
@@ -171,6 +279,7 @@ function searchArchives() {
 
 function displaySearchResults(results) {
   const container = document.getElementById("search-results");
+  container.innerHTML = "";
 
   if (results.length === 0) {
     container.innerHTML =
@@ -178,102 +287,10 @@ function displaySearchResults(results) {
     return;
   }
 
-  container.innerHTML = results
-    .map(
-      (archive) => `
-    <div class="archive-item">
-      <div class="archive-header">
-        <h3 class="archive-title">${escapeHtml(archive.fileName)}</h3>
-        <div class="archive-actions">
-          ${
-            archive.filePath && archive.filePath.startsWith("/uploads/")
-              ? `<button class="btn-download" onclick="downloadFile('${archive.filePath}', '${archive.fileName}')" title="Download">📥</button>`
-              : ""
-          }
-          <button class="btn-edit" onclick="editArchive(${
-            archive.id
-          })" title="Edit">✏️</button>
-          <button class="btn-delete" onclick="deleteArchive(${
-            archive.id
-          })" title="Hapus">🗑️</button>
-        </div>
-      </div>
-      <div class="archive-meta">
-        <div class="meta-item">
-          <span class="meta-label">Tipe:</span> ${escapeHtml(
-            archive.fileType || "N/A"
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Ukuran:</span> ${formatFileSize(
-            (archive.fileSizeKB || 0) * 1024
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Dibuat:</span> ${formatDate(
-            archive.createdDate || archive.createdAt
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Oleh:</span> ${escapeHtml(
-            archive.createdBy || "N/A"
-          )}
-        </div>
-        ${
-          archive.lastModified
-            ? `
-        <div class="meta-item">
-          <span class="meta-label">Diperbarui:</span> ${formatDate(
-            archive.lastModified
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Oleh:</span> ${escapeHtml(
-            archive.modifiedBy || "N/A"
-          )}
-        </div>`
-            : ""
-        }
-        <div class="meta-item">
-          <span class="meta-label">Status:</span> <span class="status-badge status-${(
-            archive.status || "Active"
-          ).toLowerCase()}">${escapeHtml(archive.status || "Active")}</span>
-        </div>
-      </div>
-      <div class="archive-details">
-        <p><strong>Deskripsi:</strong> ${escapeHtml(
-          archive.description || "Tidak ada deskripsi"
-        )}</p>
-        <p><strong>Lokasi:</strong> ${escapeHtml(archive.filePath || "N/A")}</p>
-        ${
-          archive.tags
-            ? `<p><strong>Tags:</strong> ${escapeHtml(archive.tags)}</p>`
-            : ""
-        }
-        ${
-          archive.notes
-            ? `<p><strong>Catatan:</strong> ${escapeHtml(archive.notes)}</p>`
-            : ""
-        }
-        ${
-          archive.category
-            ? `<span class="badge category">${escapeHtml(
-                archive.category
-              )}</span>`
-            : ""
-        }
-        ${
-          archive.department
-            ? `<span class="badge department">${escapeHtml(
-                archive.department
-              )}</span>`
-            : ""
-        }
-      </div>
-    </div>
-  `
-    )
-    .join("");
+  results.forEach((archive) => {
+    const archiveElement = createArchiveItemFromTemplate(archive);
+    container.appendChild(archiveElement);
+  });
 }
 
 // Archive Management Functions
@@ -317,97 +334,14 @@ function displayArchives(archivesToDisplay) {
     return;
   }
 
-  container.innerHTML = archivesToDisplay
-    .map(
-      (archive) => `
-    <div class="archive-item">
-      <div class="archive-header">
-        <h3 class="archive-title">${escapeHtml(archive.fileName)}</h3>
-        <div class="archive-actions">
-          <button class="btn-edit" onclick="editArchive(${
-            archive.id
-          })" title="Edit">✏️</button>
-          <button class="btn-delete" onclick="deleteArchive(${
-            archive.id
-          })" title="Hapus">🗑️</button>
-        </div>
-      </div>
-      <div class="archive-meta">
-        <div class="meta-item">
-          <span class="meta-label">Tipe:</span> ${escapeHtml(
-            archive.fileType || "N/A"
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Ukuran:</span> ${formatFileSize(
-            (archive.fileSizeKB || 0) * 1024
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Dibuat:</span> ${formatDate(
-            archive.createdDate || archive.createdAt
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Oleh:</span> ${escapeHtml(
-            archive.createdBy || "N/A"
-          )}
-        </div>
-        ${
-          archive.lastModified
-            ? `
-        <div class="meta-item">
-          <span class="meta-label">Diperbarui:</span> ${formatDate(
-            archive.lastModified
-          )}
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Oleh:</span> ${escapeHtml(
-            archive.modifiedBy || "N/A"
-          )}
-        </div>`
-            : ""
-        }
-        <div class="meta-item">
-          <span class="meta-label">Status:</span> <span class="status-badge status-${(
-            archive.status || "Active"
-          ).toLowerCase()}">${escapeHtml(archive.status || "Active")}</span>
-        </div>
-      </div>
-      <div class="archive-details">
-        <p><strong>Deskripsi:</strong> ${escapeHtml(
-          archive.description || "Tidak ada deskripsi"
-        )}</p>
-        <p><strong>Lokasi:</strong> ${escapeHtml(archive.filePath || "N/A")}</p>
-        ${
-          archive.tags
-            ? `<p><strong>Tags:</strong> ${escapeHtml(archive.tags)}</p>`
-            : ""
-        }
-        ${
-          archive.notes
-            ? `<p><strong>Catatan:</strong> ${escapeHtml(archive.notes)}</p>`
-            : ""
-        }
-        ${
-          archive.category
-            ? `<span class="badge category">${escapeHtml(
-                archive.category
-              )}</span>`
-            : ""
-        }
-        ${
-          archive.department
-            ? `<span class="badge department">${escapeHtml(
-                archive.department
-              )}</span>`
-            : ""
-        }
-      </div>
-    </div>
-  `
-    )
-    .join("");
+  // Clear container
+  container.innerHTML = "";
+
+  // Create archive items using template
+  archivesToDisplay.forEach((archive) => {
+    const archiveElement = createArchiveItemFromTemplate(archive);
+    container.appendChild(archiveElement);
+  });
 }
 
 // Form Management Functions
@@ -586,11 +520,17 @@ function handleFormSubmit(e) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return response.json().then((data) => {
+      const title = editingId ? "Arsip Diperbarui" : "Arsip Ditambahkan";
       const message = editingId
         ? "Arsip berhasil diperbarui!"
         : hasFile
         ? "File berhasil diunggah dan arsip ditambahkan!"
         : "Arsip berhasil ditambahkan!";
+
+      // Show toast notification
+      showToast("success", title, message);
+
+      // Also show old message for compatibility
       showMessage(message, "success");
       resetForm();
       loadArchives();
@@ -600,9 +540,15 @@ function handleFormSubmit(e) {
 
   function handleError(error) {
     console.error("Error saving archive:", error);
+    const title = "Gagal Menyimpan";
     const message = hasFile
       ? "Gagal mengunggah file. Silakan coba lagi."
       : "Gagal menyimpan arsip. Silakan coba lagi.";
+
+    // Show toast notification
+    showToast("error", title, message);
+
+    // Also show old message for compatibility
     showMessage(message, "error");
   }
 
@@ -612,8 +558,100 @@ function handleFormSubmit(e) {
   }
 }
 
+let currentEditingArchiveId = null;
+
 function editArchive(id) {
-  const archive = archives.find((a) => a.id === id);
+  const archive =
+    archives.find((a) => a.id === id) || allArchives.find((a) => a.id === id);
+  if (!archive) {
+    showMessage("Arsip tidak ditemukan", "error");
+    return;
+  }
+
+  // Navigate to edit form page
+  showSection("edit");
+
+  // Show edit navigation item
+  const editNavItem = document.getElementById("edit-nav-item");
+  if (editNavItem) {
+    editNavItem.style.display = "block";
+  }
+
+  // Populate edit form with archive data
+  populateEditForm(archive);
+
+  currentEditingArchiveId = id;
+}
+
+function populateEditForm(archive) {
+  // Populate all form fields with archive data
+  document.getElementById("editArchiveId").value = archive.id || "";
+  document.getElementById("editFileName").value = archive.fileName || "";
+  document.getElementById("editFileType").value = archive.fileType || "";
+  document.getElementById("editFilePath").value = archive.filePath || "";
+  document.getElementById("editDescription").value = archive.description || "";
+  document.getElementById("editCategory").value = archive.category || "";
+  document.getElementById("editDepartment").value = archive.department || "";
+  document.getElementById("editFileSizeKB").value = archive.fileSizeKB || "";
+  document.getElementById("editCreatedBy").value = archive.createdBy || "";
+  document.getElementById("editTags").value = archive.tags || "";
+  document.getElementById("editNotes").value = archive.notes || "";
+  document.getElementById("editStatus").value = archive.status || "Active";
+
+  // Show creation and modification info if available
+  const updateInfo = document.getElementById("edit-last-update-info");
+  if (updateInfo) {
+    updateInfo.style.display = "block";
+
+    // Set creation info
+    const createdDate = document.getElementById("edit-created-date");
+    const createdBy = document.getElementById("edit-created-by-display");
+    if (createdDate) createdDate.textContent = formatDate(archive.createdAt);
+    if (createdBy) createdBy.textContent = archive.createdBy || "N/A";
+
+    // Set modification info if available
+    if (archive.updatedAt) {
+      const modifiedInfo = document.getElementById("edit-modified-info");
+      const modifiedDate = document.getElementById("edit-modified-date");
+      const modifiedBy = document.getElementById("edit-modified-by-display");
+
+      if (modifiedInfo) modifiedInfo.style.display = "block";
+      if (modifiedDate)
+        modifiedDate.textContent = formatDate(archive.updatedAt);
+      if (modifiedBy) modifiedBy.textContent = archive.updatedBy || "N/A";
+    }
+  }
+}
+
+function cancelEditForm() {
+  // Hide edit navigation item
+  const editNavItem = document.getElementById("edit-nav-item");
+  if (editNavItem) {
+    editNavItem.style.display = "none";
+  }
+
+  // Navigate back to list or dashboard
+  showSection("list");
+
+  // Clear current editing ID
+  currentEditingArchiveId = null;
+
+  // Reset form
+  const editForm = document.getElementById("editArchiveForm");
+  if (editForm) {
+    editForm.reset();
+  }
+
+  // Hide update info
+  const updateInfo = document.getElementById("edit-last-update-info");
+  if (updateInfo) {
+    updateInfo.style.display = "none";
+  }
+}
+
+function editArchiveOriginal(id) {
+  const archive =
+    archives.find((a) => a.id === id) || allArchives.find((a) => a.id === id);
   if (!archive) {
     showMessage("Arsip tidak ditemukan", "error");
     return;
@@ -631,7 +669,8 @@ function editArchive(id) {
   document.getElementById("category").value = archive.category || "";
   document.getElementById("department").value = archive.department || "";
   document.getElementById("fileSizeKB").value = archive.fileSizeKB || "";
-  document.getElementById("createdBy").value = archive.createdBy || "";
+  const createdByValue = archive.createdBy || "";
+  document.getElementById("createdBy").value = createdByValue;
   document.getElementById("tags").value = archive.tags || "";
   document.getElementById("notes").value = archive.notes || "";
   document.getElementById("status").value = archive.status || "Active";
@@ -642,16 +681,18 @@ function editArchive(id) {
   const createdByDisplay = document.getElementById("created-by-display");
   const modifiedInfo = document.getElementById("modified-info");
   const modifiedDate = document.getElementById("modified-date");
+  const modifiedByDisplay = document.getElementById("modified-by-display");
 
   updateInfo.style.display = "block";
   createdDate.textContent = formatDate(
     archive.createdDate || archive.createdAt
   );
-  createdByDisplay.textContent = archive.createdBy || "N/A";
+  createdByDisplay.textContent = createdByValue || "N/A";
 
   if (archive.lastModified) {
     modifiedInfo.style.display = "block";
     modifiedDate.textContent = formatDate(archive.lastModified);
+    modifiedByDisplay.textContent = archive.modifiedBy || "N/A";
   } else {
     modifiedInfo.style.display = "none";
   }
@@ -662,6 +703,172 @@ function editArchive(id) {
   document.getElementById("cancel-btn").style.display = "inline-block";
 
   editingId = id;
+}
+
+function saveInlineEdit() {
+  if (!currentEditingArchiveId) {
+    showMessage("Tidak ada data yang sedang diedit", "error");
+    return;
+  }
+
+  // Show status update
+  showStatusUpdate("Menyimpan perubahan...");
+
+  // Get form data
+  const formData = {
+    fileName: document.getElementById("edit-fileName").value.trim(),
+    fileType: document.getElementById("edit-fileType").value,
+    description: document.getElementById("edit-description").value.trim(),
+    category: document.getElementById("edit-category").value,
+    department: document.getElementById("edit-department").value,
+    tags: document.getElementById("edit-tags").value.trim(),
+    status: document.getElementById("edit-status").value,
+    notes: document.getElementById("edit-notes").value.trim(),
+    modifiedBy: "Admin", // You can make this dynamic based on current user
+  };
+
+  // Validate required fields
+  if (!formData.fileName || !formData.description) {
+    showMessage("Nama file dan deskripsi harus diisi", "error");
+    showStatusUpdate("Gagal menyimpan: Data tidak lengkap");
+    return;
+  }
+
+  // Send update request
+  fetch(`${API_BASE}/${currentEditingArchiveId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(formData),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      showMessage("Arsip berhasil diperbarui!", "success");
+      showStatusUpdate("Data berhasil diperbaharui!");
+
+      // Update the archive item with new data
+      updateArchiveItemDisplay(currentEditingArchiveId, data);
+
+      // Close the inline edit form after a short delay
+      setTimeout(() => {
+        cancelInlineEdit();
+        loadArchives(); // Refresh the list
+        loadDashboardStats(); // Update dashboard stats
+      }, 1500);
+    })
+    .catch((error) => {
+      console.error("Error updating archive:", error);
+      showMessage("Gagal memperbarui arsip. Silakan coba lagi.", "error");
+      showStatusUpdate("Gagal menyimpan perubahan");
+    });
+}
+
+function cancelInlineEdit() {
+  // Remove all inline edit forms
+  const editForms = document.querySelectorAll(".inline-edit-form");
+  editForms.forEach((form) => form.remove());
+
+  // Remove editing class from all archive items
+  const editingItems = document.querySelectorAll(".archive-item.editing");
+  editingItems.forEach((item) => item.classList.remove("editing"));
+
+  // Hide status update
+  hideStatusUpdate();
+
+  currentEditingArchiveId = null;
+}
+
+function showStatusUpdate(message) {
+  const statusUpdate = document.getElementById("status-update");
+  const statusMessage = document.querySelector(".status-message");
+
+  if (statusUpdate && statusMessage) {
+    statusMessage.innerHTML = `✅ <strong>Status:</strong> ${message}`;
+    statusUpdate.style.display = "block";
+  }
+}
+
+function hideStatusUpdate() {
+  const statusUpdate = document.getElementById("status-update");
+  if (statusUpdate) {
+    statusUpdate.style.display = "none";
+  }
+}
+
+function updateArchiveItemDisplay(id, updatedData) {
+  const archiveItem = document.querySelector(`[data-archive-id="${id}"]`);
+  if (!archiveItem) return;
+
+  // Update the title
+  const titleElement = archiveItem.querySelector(".archive-title");
+  if (titleElement) {
+    titleElement.textContent = updatedData.fileName || "N/A";
+  }
+
+  // Update meta information
+  const metaItems = archiveItem.querySelectorAll(".meta-item");
+  metaItems.forEach((item) => {
+    const label = item.querySelector(".meta-label");
+    if (!label) return;
+
+    const labelText = label.textContent;
+    const valueElement = label.nextSibling;
+
+    switch (labelText) {
+      case "Tipe:":
+        if (valueElement)
+          valueElement.textContent = ` ${updatedData.fileType || "N/A"}`;
+        break;
+      case "Status:":
+        const statusBadge = item.querySelector(".status-badge");
+        if (statusBadge) {
+          statusBadge.textContent = updatedData.status || "Active";
+          statusBadge.className = `status-badge status-${(
+            updatedData.status || "Active"
+          ).toLowerCase()}`;
+        }
+        break;
+    }
+  });
+
+  // Update description
+  const descElement = archiveItem.querySelector(".archive-details p");
+  if (descElement && descElement.innerHTML.includes("Deskripsi:")) {
+    descElement.innerHTML = `<strong>Deskripsi:</strong> ${escapeHtml(
+      updatedData.description || "Tidak ada deskripsi"
+    )}`;
+  }
+
+  // Update tags if present
+  const tagsElement = archiveItem.querySelector(
+    ".archive-details p:nth-of-type(3)"
+  );
+  if (
+    tagsElement &&
+    tagsElement.innerHTML.includes("Tags:") &&
+    updatedData.tags
+  ) {
+    tagsElement.innerHTML = `<strong>Tags:</strong> ${escapeHtml(
+      updatedData.tags
+    )}`;
+  }
+
+  // Update badges
+  const categoryBadge = archiveItem.querySelector(".badge.category");
+  if (categoryBadge && updatedData.category) {
+    categoryBadge.textContent = updatedData.category;
+  }
+
+  const departmentBadge = archiveItem.querySelector(".badge.department");
+  if (departmentBadge && updatedData.department) {
+    departmentBadge.textContent = updatedData.department;
+  }
 }
 
 function deleteArchive(id) {
@@ -676,12 +883,26 @@ function deleteArchive(id) {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      // Show toast notification
+      showToast("success", "Arsip Dihapus", "Arsip berhasil dihapus!");
+
+      // Also show old message for compatibility
       showMessage("Arsip berhasil dihapus!", "success");
       loadArchives();
       loadDashboardStats();
     })
     .catch((error) => {
       console.error("Error deleting archive:", error);
+
+      // Show toast notification
+      showToast(
+        "error",
+        "Gagal Menghapus",
+        "Gagal menghapus arsip. Silakan coba lagi."
+      );
+
+      // Also show old message for compatibility
       showMessage("Gagal menghapus arsip. Silakan coba lagi.", "error");
     });
 }
@@ -702,6 +923,13 @@ function resetForm() {
   if (updateInfo) {
     updateInfo.style.display = "none";
   }
+
+  // Reset created-by-display
+  const createdByDisplay = document.getElementById("created-by-display");
+  if (createdByDisplay) {
+    createdByDisplay.textContent = "N/A";
+  }
+
   document.getElementById("cancel-btn").style.display = "none";
   editingId = null;
 
@@ -718,6 +946,12 @@ function resetForm() {
   if (messageDiv) {
     messageDiv.innerHTML = "";
   }
+
+  // Cancel any inline editing
+  cancelInlineEdit();
+
+  // Hide status update
+  hideStatusUpdate();
 }
 
 // Helper function untuk menampilkan informasi pembuat secara terpusat
@@ -829,4 +1063,121 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  // Initialize edit form submission
+  initializeEditFormSubmission();
 });
+
+// Initialize Edit Form Submission
+function initializeEditFormSubmission() {
+  const editForm = document.getElementById("editArchiveForm");
+  if (editForm) {
+    editForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      submitEditForm();
+    });
+  }
+}
+
+// Submit Edit Form
+function submitEditForm() {
+  const archiveId = document.getElementById("editArchiveId").value;
+
+  if (!archiveId || !currentEditingArchiveId) {
+    showMessage("ID arsip tidak valid", "error");
+    return;
+  }
+
+  // Collect form data
+  const formData = {
+    fileName: document.getElementById("editFileName").value,
+    fileType: document.getElementById("editFileType").value,
+    filePath: document.getElementById("editFilePath").value,
+    description: document.getElementById("editDescription").value,
+    category: document.getElementById("editCategory").value,
+    department: document.getElementById("editDepartment").value,
+    fileSizeKB:
+      parseFloat(document.getElementById("editFileSizeKB").value) || 0,
+    createdBy: document.getElementById("editCreatedBy").value,
+    tags: document.getElementById("editTags").value,
+    notes: document.getElementById("editNotes").value,
+    status: document.getElementById("editStatus").value,
+  };
+
+  // Validate required fields
+  if (!formData.fileName || !formData.description) {
+    showMessage("Nama file dan deskripsi harus diisi", "error");
+    return;
+  }
+
+  // Show loading state
+  const submitBtn = document.getElementById("edit-submit-btn");
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = "⏳ Menyimpan...";
+  submitBtn.disabled = true;
+
+  // Send update request
+  fetch(`${API_BASE}/${currentEditingArchiveId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(formData),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      // Show toast notification
+      showToast("success", "Arsip Diperbarui", "Arsip berhasil diperbarui!");
+
+      // Also show old message for compatibility
+      showMessage("Arsip berhasil diperbarui!", "success");
+
+      // Show success status
+      const statusUpdate = document.getElementById("edit-status-update");
+      if (statusUpdate) {
+        statusUpdate.style.display = "block";
+        const statusMessage = statusUpdate.querySelector(".status-message");
+        if (statusMessage) {
+          statusMessage.innerHTML =
+            "✅ <strong>Status:</strong> Data berhasil diperbaharui!";
+        }
+      }
+
+      // Hide edit navigation item immediately
+      const editNavItem = document.getElementById("edit-nav-item");
+      if (editNavItem) {
+        editNavItem.style.display = "none";
+      }
+
+      // Navigate back to list after a short delay
+      setTimeout(() => {
+        cancelEditForm();
+        showSection("list");
+        loadArchives(); // Refresh the list
+        loadDashboardStats(); // Update dashboard stats
+      }, 1500);
+    })
+    .catch((error) => {
+      console.error("Error updating archive:", error);
+
+      // Show toast notification
+      showToast(
+        "error",
+        "Gagal Memperbarui",
+        "Gagal memperbarui arsip. Silakan coba lagi."
+      );
+
+      // Also show old message for compatibility
+      showMessage("Gagal memperbarui arsip. Silakan coba lagi.", "error");
+    })
+    .finally(() => {
+      // Reset button state
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    });
+}
